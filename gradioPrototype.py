@@ -6,9 +6,7 @@ import faiss
 from PIL import Image
 import io 
 import pickle
-
-# add random index retreival
-
+import random
 
 def get_image(file, dataset_image_mask, processid_to_index, idx):
     image_enc_padded = file[idx].astype(np.uint8)
@@ -29,7 +27,6 @@ def searchEmbeddings(id, mod1, mod2):
     elif (mod2 == "DNA"):
         index = faiss.read_index("dna_index.index")
 
-
     # search index
     if (mod1 == "Image"):
         query = id_to_image_emb_dict[id]
@@ -42,7 +39,12 @@ def searchEmbeddings(id, mod1, mod2):
     for indx in I[0]:
         id = indx_to_id_dict[indx]
         id_list.append(id)
-    
+
+    # need id to indx
+    original_indx = processid_to_index[id]
+
+    # get images
+    image0 = get_image(dataset_hdf5_all_key, dataset_image_mask, processid_to_index, original_indx)
     image1 = get_image(dataset_hdf5_all_key, dataset_image_mask, processid_to_index, I[0][0])
     image2 = get_image(dataset_hdf5_all_key, dataset_image_mask, processid_to_index, I[0][1])
     image3 = get_image(dataset_hdf5_all_key, dataset_image_mask, processid_to_index, I[0][2])
@@ -54,7 +56,11 @@ def searchEmbeddings(id, mod1, mod2):
     image9 = get_image(dataset_hdf5_all_key, dataset_image_mask, processid_to_index, I[0][8])
     image10 = get_image(dataset_hdf5_all_key, dataset_image_mask, processid_to_index, I[0][9])
         
-    return id_list, image1, image2, image3, image4, image5, image6, image7, image8, image9, image10
+    return id_list, image0, image1, image2, image3, image4, image5, image6, image7, image8, image9, image10
+
+def getRandID():
+    indx = random.randrange(0, 325667)
+    return indx_to_id_dict[indx]
 
 with gr.Blocks() as demo:
     # open general files
@@ -65,8 +71,7 @@ with gr.Blocks() as demo:
         dataset_image_mask = pickle.load(f)
     with open("processid_to_index.pickle", "rb") as f: 
         processid_to_index = pickle.load(f)
-
-    with open("indx_to_dna_id_dict.pickle", "rb") as f: 
+    with open("indx_to_id_dict.pickle", "rb") as f: 
         indx_to_id_dict = pickle.load(f)
 
     # open image files
@@ -77,8 +82,6 @@ with gr.Blocks() as demo:
     with open("id_to_dna_emb_dict.pickle", "rb") as f: 
         id_to_dna_emb_dict = pickle.load(f)
 
-    
-
     with gr.Column():
         process_id = gr.Textbox(label="ID:", info="Enter a sample ID to search for")
         process_id_list = gr.Textbox(label="Closest 10 matches:" )
@@ -86,21 +89,28 @@ with gr.Blocks() as demo:
         mod2 = gr.Radio(choices=["DNA", "Image"], label="Search To:")
         search_btn = gr.Button("Search")
 
-    with gr.Row():
-        image1 = gr.Image(label=1)
-        image2 = gr.Image(label=2)
-        image3 = gr.Image(label=3)
-        image4 = gr.Image(label=4)
-        image5 = gr.Image(label=5)
-    with gr.Row():
-        image6 = gr.Image(label=6)
-        image7 = gr.Image(label=7)
-        image8 = gr.Image(label=8)
-        image9 = gr.Image(label=9)
-        image10 = gr.Image(label=10)
-    
+        with gr.Row():
+            image0 = gr.Image(label="Original", height=550, elem_id="image0")
+            with gr.Column():
+                rand_id = gr.Textbox(label="Random ID:")
+                id_btn = gr.Button("Get Random ID")
+        with gr.Row():
+            image1 = gr.Image(label=1)
+            image2 = gr.Image(label=2)
+            image3 = gr.Image(label=3)
+            image4 = gr.Image(label=4)
+            image5 = gr.Image(label=5)
+            
+        with gr.Row():   
+            image6 = gr.Image(label=6)
+            image7 = gr.Image(label=7)
+            image8 = gr.Image(label=8)
+            image9 = gr.Image(label=9)
+            image10 = gr.Image(label=10)
+
+    id_btn.click(fn=getRandID, inputs=[], outputs=rand_id)
     search_btn.click(fn=searchEmbeddings, inputs=[process_id, mod1, mod2], 
-                     outputs=[process_id_list, image1, image2, image3, image4, image5, image6, image7, image8, image9, image10])
+                     outputs=[process_id_list, image0, image1, image2, image3, image4, image5, image6, image7, image8, image9, image10])
     examples = gr.Examples(
         examples=[["ABOTH966-22", "DNA", "DNA"],
                   ["CRTOB8472-22", "DNA", "Image"],
